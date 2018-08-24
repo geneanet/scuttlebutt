@@ -4,11 +4,12 @@
 import scuttlebutt
 import argparse
 import logging
-from scuttlebutt.asynclib import GeventAsync
+import asyncio
+from scuttlebutt.asynclib import AsyncioAsync
 
 logging.basicConfig(level=logging.DEBUG, format =  '%(asctime)s [%(process)d:%(name)s] %(levelname)s: %(message)s')
 logger = logging.getLogger('scuttlebutt') # type: logging.Logger
-logging.getLogger('scuttlebutt.network').setLevel(logging.INFO)
+logging.getLogger('scuttlebutt.network').setLevel(logging.DEBUG)
 
 def parse_address(address):
     if isinstance(address, str):
@@ -45,17 +46,17 @@ args = parser.parse_args()
 
 (host, port) = parse_address(args.bind)
 
-async_lib = GeventAsync()
+loop = asyncio.get_event_loop()
 
-node = scuttlebutt.Node(args.nodename, host, port, async_lib = async_lib, death_suspicion_timeout=5, death_timeout=86400, revive_dead_interval=20)
+node = scuttlebutt.Node(args.nodename, host, port, async_lib = AsyncioAsync(), death_suspicion_timeout=5, death_timeout=86400, revive_dead_interval=20)
 node.on_state_change(peer_update)
 node.start()
 for bootstrap_peer in args.bootstrap:
     (peer_host, peer_port) = parse_address(bootstrap_peer)
-    node.bootstrap(peer_host, peer_port)
+    loop.create_task(node.bootstrap(peer_host, peer_port))
 
 try:
-    async_lib.run_forever()
+    loop.run_forever()
 except (KeyboardInterrupt, SystemExit):
     logger.info('Termination requested.')
     node.stop()

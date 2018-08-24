@@ -138,11 +138,11 @@ class Node(object):
         if self._revive_dead_timer != None :
             self._revive_dead_timer.stop()
 
-    def _handle_tcp_connection(self, cnx: AbstractTcpConnection, address: Tuple[str, int]):
+    async def _handle_tcp_connection(self, cnx: AbstractTcpConnection, address: Tuple[str, int]):
         net_logger.debug('<- Received TCP connection from %s:%d', *address)
 
-        self._read_tcp_header(cnx)
-        message = self._read_tcp_message(cnx)
+        await self._read_tcp_header(cnx)
+        message = await self._read_tcp_message(cnx)
         
         try:
             if isinstance(message, messages.RequestUpdate):
@@ -159,13 +159,13 @@ class Node(object):
             logger.info('Received a message from peer %s not in peerlist.', message.source.nodename)
             self.peerlist.set_peer_state(message.source, PeerState.ALIVE)
 
-    def _query_tcp(self, peer: Peer, message: messages.Message) -> messages.Message:
-        cnx = self.async_lib.create_tcp_connection(peer.host, peer.port, self.tcp_connection_timeout, self.tcp_timeout)
+    async def _query_tcp(self, peer: Peer, message: messages.Message) -> messages.Message:
+        cnx = await self.async_lib.create_tcp_connection(peer.host, peer.port, self.tcp_connection_timeout, self.tcp_timeout)
 
         self._write_tcp_header(cnx)
         self._write_tcp_message(cnx, message)
 
-        received_message = self._read_tcp_message(cnx)
+        received_message = await self._read_tcp_message(cnx)
 
         return received_message
 
@@ -175,12 +175,12 @@ class Node(object):
         cnx.write(struct.pack('!B',PROTOCOL_VERSION))
 
     @staticmethod
-    def _read_tcp_header(cnx: AbstractTcpConnection):
-        hello = cnx.read(len(PROTOCOL_HELLO))
+    async def _read_tcp_header(cnx: AbstractTcpConnection):
+        hello = await cnx.read(len(PROTOCOL_HELLO))
         if hello != PROTOCOL_HELLO:
             raise Exception('Bad protocol Hello.')
 
-        version = cnx.read(1)
+        version = await cnx.read(1)
         if len(version) < 1:
             raise Exception('Protocol error: can\'t read version')
         (version,) = struct.unpack('!B', version)
@@ -195,13 +195,13 @@ class Node(object):
         net_logger.debug('-> Sent TCP message : %s', message)
 
     @staticmethod
-    def _read_tcp_message(cnx: AbstractTcpConnection) -> messages.Message:
-        size = cnx.read(4)
+    async def _read_tcp_message(cnx: AbstractTcpConnection) -> messages.Message:
+        size = await cnx.read(4)
         if len(size) < 4:
             raise Exception('Protocol error: can\'t read message size')
         (size,) = struct.unpack('!I', size)
 
-        message = cnx.read(size)
+        message = await cnx.read(size)
         if len(message) < size:
             raise Exception('Protocol error: can\'t read message')
         
@@ -284,7 +284,7 @@ class Node(object):
                 logger.warning("Peer %s did not answer to indirect ping.", probed_peer.nodename)
                 self.peerlist.set_peer_state(probed_peer, PeerState.SUSPECTED_DEAD)
         
-    def full_update(self):
+    async def full_update(self):
         peers = self.peerlist.get_random_peers(count=1, exclude_peers=[self._self_peer], include_states=[PeerState.ALIVE])
         if len(peers) == 1:
             peer = peers[0]
@@ -293,7 +293,7 @@ class Node(object):
             logger.debug("No peer to ask for a full update.")
             return
 
-        message = self._query_tcp(peer, messages.RequestUpdate(self._self_peer))
+        message = await self._query_tcp(peer, messages.RequestUpdate(self._self_peer))
         assert isinstance(message, messages.Update)
         self.peerlist.apply_updates(self.filter_fake_news(message.updates))
 
@@ -352,8 +352,8 @@ class Node(object):
         net_logger.debug('-> Sending message to %s : %s', peer, message)
         self._udp_server.send_to(pickle.dumps(message), peer.host, peer.port)
 
-    def bootstrap(self, host: str, port: int):
-        message = self._query_tcp(Peer(host=host, port=port), messages.RequestUpdate(self._self_peer))
+    async def bootstrap(self, host: str, port: int):
+        message = await self._query_tcp(Peer(host=host, port=port), messages.RequestUpdate(self._self_peer))
         assert isinstance(message, messages.Update)
         self.peerlist.apply_updates(self.filter_fake_news(message.updates))
 

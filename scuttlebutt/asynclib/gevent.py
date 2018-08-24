@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*-
 
 from typing import Callable, List
-from scuttlebutt.asynclib.abstract import AbstractAsync, AbstractUdpServer, AbstractTcpServer, AbstractTcpConnection, AbstractLock, AbstractPeriodicFunction, AbstractCoroutine
-
 import gevent
 import gevent.server
-import gevent.socket
 import gevent.lock
-from gevent.socket import socket
+from gevent.socket import socket, create_connection
 
-from gevent import monkey; monkey.patch_all()
+from scuttlebutt.asynclib.abstract import AbstractAsync, AbstractUdpServer, AbstractTcpServer, AbstractTcpConnection, AbstractLock, AbstractPeriodicFunction, AbstractCoroutine
 
 class GeventUdpServer(AbstractUdpServer):
     def __init__(self, host: str, port: int, on_data_received: Callable):
@@ -124,7 +121,7 @@ class GeventAsync(AbstractAsync):
     
     @staticmethod
     def create_tcp_connection(host: str, port: int, tcp_connection_timeout: int = None, tcp_timeout: int = None) -> GeventTcpConnection:
-        sock = gevent.socket.create_connection(address=(host, port), timeout=tcp_connection_timeout) # type: socket
+        sock = create_connection(address=(host, port), timeout=tcp_connection_timeout) # type: socket
         if tcp_timeout:
             sock.settimeout(tcp_timeout)
         return GeventTcpConnection(sock)
