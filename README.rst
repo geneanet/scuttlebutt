@@ -12,9 +12,10 @@ Different techniques are used to improve over the SWIM protocol:
 
 References
 ==========
- - https://prakhar.me/articles/swim/
- - https://www.brianstorti.com/swim/
- - https://www.serf.io/docs/internals/gossip.html
+
+- https://prakhar.me/articles/swim/
+- https://www.brianstorti.com/swim/
+- https://www.serf.io/docs/internals/gossip.html
 
 Dependencies
 ============
